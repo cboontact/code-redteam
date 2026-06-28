@@ -19,7 +19,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json(data);
+  // เรียงลำดับแบบ Natural Sort (ให้ ม.1/2 มาก่อน ม.1/11)
+  const sortedData = data.sort((a, b) =>
+    a.name.localeCompare(b.name, "th-TH", { numeric: true })
+  );
+
+  return NextResponse.json(sortedData);
 }
 
 export async function POST(request: NextRequest) {
