@@ -8,6 +8,7 @@ import {
   faClock,
   faPenToSquare,
   faFolderOpen,
+  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { ReportWithRoom } from "@/lib/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -23,9 +24,11 @@ import Link from "next/link";
 interface ReportDetailProps {
   report: ReportWithRoom;
   onOpenFolder?: () => void;
+  isAdmin?: boolean;
+  onDelete?: () => void;
 }
 
-export function ReportDetail({ report, onOpenFolder }: ReportDetailProps) {
+export function ReportDetail({ report, onOpenFolder, isAdmin, onDelete }: ReportDetailProps) {
   const canEdit = isBeforeEditCutoff(report.report_date);
 
   return (
@@ -89,7 +92,7 @@ export function ReportDetail({ report, onOpenFolder }: ReportDetailProps) {
         </div>
       )}
 
-      {canEdit && (
+      {canEdit && !isAdmin && (
         <Link
           href={`/edit/${report.id}`}
           className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-medium"
@@ -97,6 +100,23 @@ export function ReportDetail({ report, onOpenFolder }: ReportDetailProps) {
           <FontAwesomeIcon icon={faPenToSquare} />
           แก้ไขรายงาน (ก่อน 19:00 น.)
         </Link>
+      )}
+
+      {isAdmin && onDelete && (
+        <div className="pt-4 mt-2 border-t border-gray-100 flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm("ยืนยันการลบรายงานนี้? (รูปภาพทั้งหมดจะถูกลบด้วย)")) {
+                onDelete();
+              }
+            }}
+            className="inline-flex items-center gap-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            <FontAwesomeIcon icon={faTrash} />
+            ลบรายงาน
+          </button>
+        </div>
       )}
     </div>
   );

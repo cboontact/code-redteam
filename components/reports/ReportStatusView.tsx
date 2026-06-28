@@ -16,6 +16,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ReportDetail } from "@/components/reports/ReportDetail";
 import { ImageFolderView } from "@/components/reports/ImageFolderView";
 import { Spinner } from "@/components/ui/Spinner";
+import { useToast } from "@/components/ui/Toast";
 import { AdvisorInfo } from "@/components/rooms/AdvisorInfo";
 import { getSupabaseClient } from "@/lib/supabase";
 import {
@@ -45,6 +46,7 @@ export function ReportStatusView({ isAdmin = false }: ReportStatusViewProps) {
   const [selectedReport, setSelectedReport] = useState<ReportWithRoom | null>(null);
   const [folderReport, setFolderReport] = useState<ReportWithRoom | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
+  const { showToast } = useToast();
 
   const isToday = selectedDate === today;
 
@@ -114,6 +116,20 @@ export function ReportStatusView({ isAdmin = false }: ReportStatusViewProps) {
     all: "ทั้งหมด",
     submitted: "ส่งแล้ว",
     pending: "ยังไม่ส่ง",
+  };
+
+  const handleDeleteReport = async (id: string) => {
+    try {
+      const res = await fetch(`/api/reports/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "ลบไม่สำเร็จ");
+      
+      showToast("ลบรายงานสำเร็จ", "success");
+      setSelectedReport(null);
+      fetchStatus();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "เกิดข้อผิดพลาด", "error");
+    }
   };
 
   return (
@@ -330,6 +346,8 @@ export function ReportStatusView({ isAdmin = false }: ReportStatusViewProps) {
         {selectedReport && (
           <ReportDetail
             report={selectedReport}
+            isAdmin={isAdmin}
+            onDelete={isAdmin ? () => handleDeleteReport(selectedReport.id) : undefined}
             onOpenFolder={
               isAdmin
                 ? () => {

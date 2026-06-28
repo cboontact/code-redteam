@@ -8,6 +8,7 @@ import {
   normalizePhone,
 } from "@/lib/utils";
 import { validateReportImages } from "@/lib/images";
+import { getStoragePathFromProxyUrl, REPORT_IMAGES_BUCKET } from "@/lib/storage-paths";
 
 export async function GET(
   _request: NextRequest,
@@ -113,6 +114,17 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // ลบรูปภาพเก่าใน Storage ที่ไม่ได้ใช้แล้ว (ถ้ามีการเปลี่ยนรูป)
+  if (images && existing.images) {
+    const oldPaths = existing.images.map(getStoragePathFromProxyUrl).filter(Boolean) as string[];
+    const newPaths = images.map(getStoragePathFromProxyUrl).filter(Boolean) as string[];
+    const pathsToDelete = oldPaths.filter((p) => !newPaths.includes(p));
+
+    if (pathsToDelete.length > 0) {
+      await supabase.storage.from(REPORT_IMAGES_BUCKET).remove(pathsToDelete);
+    }
+  }
+
   return NextResponse.json(data);
 }
 
@@ -127,6 +139,24 @@ export async function DELETE(
 
   const { id } = await params;
   const supabase = getSupabaseAdmin();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("reports")
+    .select("images")
+    .eq("id", id)
+    .single();
+
+  if (fetchError || !existing) {
+    return NextResponse.json({ error: "ไม่พบรายงาน" }, { status: 404 });
+  }
+
+  // ลบรูปภาพทั้งหมดของรายงานนี้ใน Storage
+  if (existing.images?.length > 0) {
+    const paths = existing.images.map(getStoragePathFromProxyUrl).filter(Boolean) as string[];
+    if (paths.length > 0) {
+      await supabase.storage.from(REPORT_IMAGES_BUCKET).remove(paths);
+    }
+  }
 
   const { error } = await supabase.from("reports").delete().eq("id", id);
 
