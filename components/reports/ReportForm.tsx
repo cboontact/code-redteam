@@ -282,12 +282,20 @@ export function ReportForm({
           className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none transition-all bg-white"
         >
           <option value="">-- เลือกห้อง/พื้นที่ --</option>
-          {rooms.map((room) => (
-            <option key={room.id} value={room.id}>
-              {room.name}
-              {room.area_description ? ` — ${room.area_description}` : ""}
-            </option>
-          ))}
+          {rooms.map((room) => {
+            const desc = room.area_description;
+            const shortDesc = desc
+              ? desc.length > 40
+                ? desc.substring(0, 40) + "..."
+                : desc
+              : "";
+            return (
+              <option key={room.id} value={room.id}>
+                {room.name}
+                {shortDesc ? ` — ${shortDesc}` : ""}
+              </option>
+            );
+          })}
         </select>
         {roomId && (
           <AdvisorInfo
