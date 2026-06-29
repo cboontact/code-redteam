@@ -6,7 +6,7 @@ import {
   faFolderOpen,
   faArrowUpRightFromSquare,
 } from "@fortawesome/free-solid-svg-icons";
-import { Spinner } from "@/components/ui/Spinner";
+import { ImageFolderSkeleton } from "@/components/ui/Skeleton";
 import { EVIDENCE_SLOT_CLASS } from "@/lib/images";
 import { formatThaiDate } from "@/lib/utils";
 
@@ -30,6 +30,7 @@ export function ImageFolderView({
   const [loading, setLoading] = useState(true);
   const [folder, setFolder] = useState("");
   const [images, setImages] = useState<FolderImage[]>([]);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -52,6 +53,7 @@ export function ImageFolderView({
 
         setFolder(data.folder);
         setImages(data.images ?? []);
+        setFailedImages(new Set());
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -70,11 +72,7 @@ export function ImageFolderView({
   }, [reportDate, roomId]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Spinner />
-      </div>
-    );
+    return <ImageFolderSkeleton />;
   }
 
   if (error) {
@@ -102,7 +100,10 @@ export function ImageFolderView({
         </p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {images.map((image, index) => (
+          {images.map((image, index) => {
+            const failed = failedImages.has(image.path);
+
+            return (
             <a
               key={image.path}
               href={image.url}
@@ -110,13 +111,22 @@ export function ImageFolderView({
               rel="noopener noreferrer"
               className={`${EVIDENCE_SLOT_CLASS} group`}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={image.url}
-                alt={image.name}
-                className="absolute inset-0 w-full h-full object-contain p-1"
-                loading="lazy"
-              />
+              {failed ? (
+                <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-red-500">
+                  ไฟล์รูปเสีย<br />กรุณาอัพใหม่
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={image.url}
+                  alt={image.name}
+                  className="absolute inset-0 w-full h-full object-contain p-1"
+                  loading="lazy"
+                  onError={() =>
+                    setFailedImages((prev) => new Set(prev).add(image.path))
+                  }
+                />
+              )}
               <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-md">
                 {image.name.match(/^slot-(\d+)/)?.[1] ?? index + 1}
               </span>
@@ -127,7 +137,8 @@ export function ImageFolderView({
                 />
               </span>
             </a>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

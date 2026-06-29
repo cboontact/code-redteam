@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { EvidenceImage } from "./EvidenceImage";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -28,8 +29,33 @@ interface ReportDetailProps {
   onDelete?: () => void;
 }
 
+function getSlotNumberFromPath(path: string, fallback: number): number {
+  const match = path.match(/slot-(\d+)\./);
+  return match ? Number(match[1]) : fallback;
+}
+
 export function ReportDetail({ report, onOpenFolder, isAdmin, onDelete }: ReportDetailProps) {
   const canEdit = isBeforeEditCutoff(report.report_date);
+
+  const imageSlots = useMemo(() => {
+    const slots = Array<string | null>(6).fill(null);
+    const sourceImages =
+      report.images?.map((url, index) => ({
+        url,
+        path: url,
+        name: `slot-${index + 1}`,
+      })) ??
+      [];
+
+    sourceImages.forEach((image, index) => {
+      const slot = getSlotNumberFromPath(image.path || image.name, index + 1);
+      if (slot >= 1 && slot <= 6) {
+        slots[slot - 1] = image.url;
+      }
+    });
+
+    return slots;
+  }, [report.images]);
 
   return (
     <div className="space-y-4">
@@ -79,18 +105,24 @@ export function ReportDetail({ report, onOpenFolder, isAdmin, onDelete }: Report
         </button>
       )}
 
-      {report.images?.length > 0 && (
+      {imageSlots.some(Boolean) || report.images?.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {report.images.map((url, i) => (
-            <div key={url} className={EVIDENCE_SLOT_CLASS}>
-              <EvidenceImage src={url} alt={`รูป ${i + 1}`} />
+          {imageSlots.map((url, i) => (
+            <div key={`${i}-${url ?? "missing"}`} className={EVIDENCE_SLOT_CLASS}>
+              {url ? (
+                <EvidenceImage src={url} alt={`รูป ${i + 1}`} />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-red-500">
+                  ไฟล์รูปเสีย<br />กรุณาอัพใหม่
+                </div>
+              )}
               <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-md">
                 {i + 1}
               </span>
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       {canEdit && !isAdmin && (
         <Link

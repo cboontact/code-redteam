@@ -3,8 +3,10 @@ import {
   getStoragePathFromProxyUrl,
 } from "@/lib/storage-paths";
 
+const IMAGE_PROXY_CACHE_VERSION = "20260629-2";
+
 export function buildImageProxyUrl(storagePath: string): string {
-  return `/api/images?path=${encodeURIComponent(storagePath)}`;
+  return `/api/images?path=${encodeURIComponent(storagePath)}&v=${IMAGE_PROXY_CACHE_VERSION}`;
 }
 
 export function toDisplayImageUrl(url: string): string {
@@ -12,7 +14,7 @@ export function toDisplayImageUrl(url: string): string {
   if (url.startsWith("blob:") || url.startsWith("data:")) return url;
 
   const proxyPath = getStoragePathFromProxyUrl(url);
-  if (proxyPath) return resolveImageSrc(url);
+  if (proxyPath) return resolveImageSrc(buildImageProxyUrl(proxyPath));
 
   const storagePath = getStoragePathFromPublicUrl(url);
   if (storagePath) return resolveImageSrc(buildImageProxyUrl(storagePath));

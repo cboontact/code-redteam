@@ -32,10 +32,10 @@ export async function GET(request: NextRequest) {
 
   const buffer = Buffer.from(await data.arrayBuffer());
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": contentTypeForPath(path),
-      "Cache-Control": "public, max-age=86400",
+      "Cache-Control": "no-store, max-age=0",
     },
   });
 }

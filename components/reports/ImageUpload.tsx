@@ -21,14 +21,14 @@ import { cn } from "@/lib/utils";
 interface ImageUploadProps {
   slots: (string | null)[];
   onChange: (slots: (string | null)[]) => void;
-  uploadingSlot: number | null;
-  onUpload: (file: File, slotIndex: number) => Promise<void>;
+  uploadingSlots: number[];
+  onUpload: (file: File, slotIndex: number) => Promise<boolean>;
 }
 
 export function ImageUpload({
   slots,
   onChange,
-  uploadingSlot,
+  uploadingSlots,
   onUpload,
 }: ImageUploadProps) {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -89,7 +89,10 @@ export function ImageUpload({
     });
 
     try {
-      await onUpload(file, index);
+      const uploaded = await onUpload(file, index);
+      if (!uploaded && previewGen.current[index] === gen) {
+        clearPreview(index);
+      }
     } finally {
       const input = inputRefs.current[index];
       if (input) input.value = "";
@@ -114,7 +117,7 @@ export function ImageUpload({
         {Array.from({ length: REQUIRED_EVIDENCE_IMAGES }, (_, index) => {
           const remoteUrl = slots[index];
           const displayUrl = localPreviews[index] ?? remoteUrl;
-          const isUploading = uploadingSlot === index;
+          const isUploading = uploadingSlots.includes(index);
           const hasImage = Boolean(displayUrl);
           const isUploaded = Boolean(remoteUrl);
 

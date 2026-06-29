@@ -15,7 +15,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { ReportDetail } from "@/components/reports/ReportDetail";
 import { ImageFolderView } from "@/components/reports/ImageFolderView";
-import { Spinner } from "@/components/ui/Spinner";
+import { RoomRowSkeleton, StatCardSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { useToast } from "@/components/ui/Toast";
 import { AdvisorInfo } from "@/components/rooms/AdvisorInfo";
 import { getSupabaseClient } from "@/lib/supabase";
@@ -269,8 +269,19 @@ export function ReportStatusView({ isAdmin = false }: ReportStatusViewProps) {
 
       {/* Room List */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Spinner size="lg" />
+        <div className="space-y-3">
+          {/* Skeleton stat cards */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <div className="grid grid-cols-3 gap-3">
+              <StatCardSkeleton />
+              <StatCardSkeleton />
+              <StatCardSkeleton />
+            </div>
+          </div>
+          <Skeleton className="h-4 w-32 rounded-lg ml-1" />
+          {Array.from({ length: 5 }).map((_, i) => (
+            <RoomRowSkeleton key={i} />
+          ))}
         </div>
       ) : (
         <div className="space-y-3">

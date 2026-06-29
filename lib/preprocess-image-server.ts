@@ -22,7 +22,7 @@ async function decodeWithSharp(input: Buffer): Promise<Buffer | null> {
       animated: true,
     })
       .rotate()
-      .jpeg({ quality: 92, mozjpeg: true })
+      .jpeg({ quality: 92, mozjpeg: false }) // mozjpeg: false → เร็วกว่า สำหรับ decode pass
       .toBuffer();
   } catch {
     return null;

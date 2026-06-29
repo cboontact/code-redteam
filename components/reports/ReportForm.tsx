@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faUser,
@@ -27,6 +27,7 @@ import {
   MAX_UPLOAD_BYTES,
   SUPPORTED_IMAGE_FORMATS_LABEL,
 } from "@/lib/image-formats";
+import { normalizeImageForUpload } from "@/lib/normalize-image-client";
 import { Button } from "@/components/ui/Button";
 import { ImageUpload } from "./ImageUpload";
 import { AdvisorInfo } from "@/components/rooms/AdvisorInfo";
@@ -79,10 +80,11 @@ export function ReportForm({
     createImageHashSlots()
   );
   const [submitting, setSubmitting] = useState(false);
-  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
+  const [uploadingSlots, setUploadingSlots] = useState<number[]>([]);
   const [verifyPhone, setVerifyPhone] = useState("");
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  const hasPendingUploads = uploadingSlots.length > 0;
 
   const resetForm = () => {
     setRoomId("");
@@ -93,17 +95,11 @@ export function ReportForm({
     setImageSlots(createImageSlots());
     setImageHashes(createImageHashSlots());
     setAlreadySubmitted(false);
-    setUploadingSlot(null);
+    setUploadingSlots([]);
     setFormKey((key) => key + 1);
   };
 
-  useEffect(() => {
-    if (mode === "create" && roomId) {
-      checkDuplicate(roomId);
-    }
-  }, [roomId, mode]);
-
-  const checkDuplicate = async (id: string) => {
+  const checkDuplicate = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/reports?room_id=${id}&today=true`);
       const data = await res.json();
@@ -111,7 +107,16 @@ export function ReportForm({
     } catch {
       setAlreadySubmitted(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (mode === "create" && roomId) {
+      const timeout = window.setTimeout(() => {
+        void checkDuplicate(roomId);
+      }, 0);
+      return () => window.clearTimeout(timeout);
+    }
+  }, [checkDuplicate, roomId, mode]);
 
   const handleSlotChange = (slots: (string | null)[]) => {
     slots.forEach((url, index) => {
@@ -126,10 +131,10 @@ export function ReportForm({
     setImageSlots(slots);
   };
 
-  const handleUpload = async (file: File, slotIndex: number) => {
+  const handleUpload = async (file: File, slotIndex: number): Promise<boolean> => {
     if (!roomId) {
       showToast("กรุณาเลือกห้องก่อนอัพโหลดรูป", "error");
-      return;
+      return false;
     }
 
     if (!isAllowedImageFile(file)) {
@@ -137,15 +142,17 @@ export function ReportForm({
         `รองรับเฉพาะไฟล์รูป (${SUPPORTED_IMAGE_FORMATS_LABEL})`,
         "error"
       );
-      return;
+      return false;
     }
 
     if (file.size > MAX_UPLOAD_BYTES) {
       showToast("ไฟล์ใหญ่เกินไป กรุณาใช้รูปไม่เกิน 20MB", "error");
-      return;
+      return false;
     }
 
-    setUploadingSlot(slotIndex);
+    setUploadingSlots((prev) =>
+      prev.includes(slotIndex) ? prev : [...prev, slotIndex]
+    );
 
     try {
       const hash = await getFileHash(file);
@@ -154,11 +161,23 @@ export function ReportForm({
       );
       if (isDuplicate) {
         showToast("รูปนี้ซ้ำกับช่องอื่น กรุณาเลือกรูปอื่น", "error");
-        return;
+        return false;
+      }
+
+      let uploadFile = file;
+      try {
+        uploadFile = await normalizeImageForUpload(file);
+      } catch {
+        uploadFile = file;
+      }
+
+      if (uploadFile.size > MAX_UPLOAD_BYTES) {
+        showToast("ไฟล์ใหญ่เกินไป กรุณาใช้รูปไม่เกิน 20MB", "error");
+        return false;
       }
 
       const formData = new FormData();
-      formData.append("files", file);
+      formData.append("files", uploadFile);
       formData.append("room_id", roomId);
       formData.append("slot", String(slotIndex + 1));
       formData.append(
@@ -186,13 +205,15 @@ export function ReportForm({
       });
 
       showToast(`อัพโหลดรูปช่อง ${slotIndex + 1} สำเร็จ`, "success");
+      return true;
     } catch (err) {
       showToast(
         err instanceof Error ? err.message : "อัพโหลดไม่สำเร็จ",
         "error"
       );
+      return false;
     } finally {
-      setUploadingSlot(null);
+      setUploadingSlots((prev) => prev.filter((slot) => slot !== slotIndex));
     }
   };
 
@@ -206,6 +227,11 @@ export function ReportForm({
 
     if (mode === "create" && alreadySubmitted) {
       showToast("ห้องนี้ส่งรายงานวันนี้แล้ว", "error");
+      return;
+    }
+
+    if (hasPendingUploads) {
+      showToast("กรุณารอให้อัพโหลดรูปเสร็จก่อนส่งรายงาน", "error");
       return;
     }
 
@@ -408,17 +434,24 @@ export function ReportForm({
         key={formKey}
         slots={imageSlots}
         onChange={handleSlotChange}
-        uploadingSlot={uploadingSlot}
+        uploadingSlots={uploadingSlots}
         onUpload={handleUpload}
       />
 
       <Button
         type="submit"
         loading={submitting}
-        disabled={mode === "create" && (alreadySubmitted || !canSubmit)}
+        disabled={
+          hasPendingUploads ||
+          (mode === "create" && (alreadySubmitted || !canSubmit))
+        }
         className="w-full py-3.5 text-base"
       >
-        {mode === "edit" ? "บันทึกการแก้ไข" : "ส่งรายงาน"}
+        {hasPendingUploads
+          ? "กำลังอัพโหลดรูป..."
+          : mode === "edit"
+            ? "บันทึกการแก้ไข"
+            : "ส่งรายงาน"}
       </Button>
     </form>
   );

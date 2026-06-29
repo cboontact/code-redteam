@@ -20,6 +20,12 @@ body {
   font-family: var(--font-noto-sans-thai), sans-serif;
 }
 
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @keyframes toast-in {
   from {
     transform: translateX(110%) scale(0.95);

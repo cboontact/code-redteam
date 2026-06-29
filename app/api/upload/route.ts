@@ -9,9 +9,48 @@ import {
   MAX_UPLOAD_BYTES,
   SUPPORTED_IMAGE_FORMATS_LABEL,
 } from "@/lib/image-formats";
-import { validateImageBuffer } from "@/lib/preprocess-image-server";
-import { buildReportImagePath, REPORT_IMAGES_BUCKET } from "@/lib/storage-paths";
+import {
+  buildReportImageFolder,
+  buildReportImagePath,
+  REPORT_IMAGES_BUCKET,
+} from "@/lib/storage-paths";
 import { buildImageProxyUrl } from "@/lib/image-urls";
+
+function hashBuffer(buffer: Buffer): string {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+function fileBelongsToSlot(fileName: string, slot: number): boolean {
+  const match = fileName.match(/^slot-(\d+)\./);
+  if (!match) return false;
+  return Number(match[1]) === slot;
+}
+
+/**
+ * list โฟลเดอร์ครั้งเดียว แล้วลบเฉพาะไฟล์ของ slot นั้น
+ */
+async function removeExistingSlotFiles(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  folder: string,
+  slot: number
+): Promise<void> {
+  const { data: files, error } = await supabase.storage
+    .from(REPORT_IMAGES_BUCKET)
+    .list(folder);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const pathsToRemove =
+    files
+      ?.filter((file) => fileBelongsToSlot(file.name, slot))
+      .map((file) => `${folder}/${file.name}`) ?? [];
+
+  if (pathsToRemove.length > 0) {
+    await supabase.storage.from(REPORT_IMAGES_BUCKET).remove(pathsToRemove);
+  }
+}
 
 export async function POST(request: NextRequest) {
   const ip =
@@ -37,7 +76,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (!roomId) {
-    return NextResponse.json({ error: "กรุณาเลือกห้องก่อนอัพโหลดรูป" }, { status: 400 });
+    return NextResponse.json(
+      { error: "กรุณาเลือกห้องก่อนอัพโหลดรูป" },
+      { status: 400 }
+    );
   }
 
   if (!Number.isInteger(slot) || slot < 1 || slot > 6) {
@@ -51,9 +93,7 @@ export async function POST(request: NextRequest) {
   for (const file of files) {
     if (!isAllowedImageFile(file)) {
       return NextResponse.json(
-        {
-          error: `รองรับเฉพาะไฟล์รูป (${SUPPORTED_IMAGE_FORMATS_LABEL})`,
-        },
+        { error: `รองรับเฉพาะไฟล์รูป (${SUPPORTED_IMAGE_FORMATS_LABEL})` },
         { status: 400 }
       );
     }
@@ -67,20 +107,18 @@ export async function POST(request: NextRequest) {
 
     const rawBuffer = Buffer.from(await file.arrayBuffer());
 
-    const readable = await validateImageBuffer(rawBuffer);
-    if (!readable) {
-      return NextResponse.json(
-        {
-          error: `ไม่สามารถอ่านไฟล์รูปได้ กรุณาใช้ ${SUPPORTED_IMAGE_FORMATS_LABEL}`,
-        },
-        { status: 400 }
-      );
-    }
-
     let compressed;
     try {
       compressed = await compressImageToMaxSize(rawBuffer);
-    } catch {
+    } catch (err) {
+      if (err instanceof Error && err.message === "UNSUPPORTED_IMAGE") {
+        return NextResponse.json(
+          {
+            error: `ไม่สามารถอ่านไฟล์รูปได้ กรุณาใช้ ${SUPPORTED_IMAGE_FORMATS_LABEL}`,
+          },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         {
           error:
@@ -90,7 +128,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const hash = createHash("sha256").update(compressed.buffer).digest("hex");
+    const hash = hashBuffer(compressed.buffer);
 
     if (seenHashes.has(hash)) {
       return NextResponse.json(
@@ -100,6 +138,11 @@ export async function POST(request: NextRequest) {
     }
     seenHashes.add(hash);
 
+    // ลบไฟล์เก่าของ slot นี้ออกก่อน (1 รอบ list เท่านั้น)
+    // การตรวจ duplicate hash ข้าม slot ทำฝั่ง client ผ่าน imageHashes state แล้ว
+    const folder = buildReportImageFolder(reportDate, roomId);
+    await removeExistingSlotFiles(supabase, folder, slot);
+
     const fileName = buildReportImagePath(
       reportDate,
       roomId,
@@ -107,9 +150,13 @@ export async function POST(request: NextRequest) {
       compressed.ext
     );
 
+    const uploadBody = new Blob([new Uint8Array(compressed.buffer)], {
+      type: compressed.contentType,
+    });
+
     const { error } = await supabase.storage
       .from(REPORT_IMAGES_BUCKET)
-      .upload(fileName, compressed.buffer, {
+      .upload(fileName, uploadBody, {
         contentType: compressed.contentType,
         upsert: true,
       });
