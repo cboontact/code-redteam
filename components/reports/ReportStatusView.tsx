@@ -179,8 +179,15 @@ export function ReportStatusView({ isAdmin = false }: ReportStatusViewProps) {
           </div>
         </div>
 
-        {/* Summary Cards */}
+        {/* Summary Cards — skeleton ระหว่าง loading, ข้อมูลจริงเมื่อโหลดเสร็จ */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          {loading ? (
+            <div className="grid grid-cols-3 gap-3">
+              <StatCardSkeleton />
+              <StatCardSkeleton />
+              <StatCardSkeleton />
+            </div>
+          ) : (
           <div className="grid grid-cols-3 gap-3">
             {(
               [
@@ -264,20 +271,13 @@ export function ReportStatusView({ isAdmin = false }: ReportStatusViewProps) {
               </button>
             ))}
           </div>
+          )}
         </div>
       </div>
 
       {/* Room List */}
       {loading ? (
         <div className="space-y-3">
-          {/* Skeleton stat cards */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-            <div className="grid grid-cols-3 gap-3">
-              <StatCardSkeleton />
-              <StatCardSkeleton />
-              <StatCardSkeleton />
-            </div>
-          </div>
           <Skeleton className="h-4 w-32 rounded-lg ml-1" />
           {Array.from({ length: 5 }).map((_, i) => (
             <RoomRowSkeleton key={i} />

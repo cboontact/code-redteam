@@ -102,41 +102,40 @@ export function ImageFolderView({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {images.map((image, index) => {
             const failed = failedImages.has(image.path);
-
             return (
-            <a
-              key={image.path}
-              href={image.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${EVIDENCE_SLOT_CLASS} group`}
-            >
-              {failed ? (
-                <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-red-500">
-                  ไฟล์รูปเสีย<br />กรุณาอัพใหม่
-                </div>
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={image.url}
-                  alt={image.name}
-                  className="absolute inset-0 w-full h-full object-contain p-1"
-                  loading="lazy"
-                  onError={() =>
-                    setFailedImages((prev) => new Set(prev).add(image.path))
-                  }
-                />
-              )}
-              <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-md">
-                {image.name.match(/^slot-(\d+)/)?.[1] ?? index + 1}
-              </span>
-              <span className="absolute top-2 right-2 p-1.5 rounded-md bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                <FontAwesomeIcon
-                  icon={faArrowUpRightFromSquare}
-                  className="text-[10px]"
-                />
-              </span>
-            </a>
+              <a
+                key={image.path}
+                href={image.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${EVIDENCE_SLOT_CLASS} group`}
+              >
+                {failed ? (
+                  <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-red-500">
+                    ไฟล์รูปเสีย<br />กรุณาอัพใหม่
+                  </div>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={image.url}
+                    alt={image.name}
+                    className="absolute inset-0 w-full h-full object-contain p-1"
+                    loading="eager"
+                    onError={() =>
+                      setFailedImages((prev) => new Set(prev).add(image.path))
+                    }
+                  />
+                )}
+                <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-md z-10">
+                  {image.name.match(/^slot-(\d+)/)?.[1] ?? index + 1}
+                </span>
+                <span className="absolute top-2 right-2 p-1.5 rounded-md bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                  <FontAwesomeIcon
+                    icon={faArrowUpRightFromSquare}
+                    className="text-[10px]"
+                  />
+                </span>
+              </a>
             );
           })}
         </div>

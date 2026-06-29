@@ -137,7 +137,7 @@ export function ImageUpload({
                 <div
                   className={cn(
                     EVIDENCE_SLOT_CLASS,
-                    "border-2 group flex items-center justify-center",
+                    "border-2 group",
                     isUploaded ? "border-emerald-200" : "border-amber-200"
                   )}
                 >

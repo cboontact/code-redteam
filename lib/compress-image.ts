@@ -83,42 +83,41 @@ export async function compressImageToMaxSize(
   maxBytes = MAX_IMAGE_OUTPUT_BYTES
 ): Promise<CompressedImage> {
   let sharpFailed = false;
+  let best: CompressedImage | null = null;
 
-  // ลอง encode โดยตรงจาก raw buffer (1 รอบเท่านั้น)
   for (const attempt of ENCODE_ATTEMPTS) {
     try {
       const result = await encodeImage(input, attempt);
+      // track ผลที่เล็กที่สุดที่เคยได้
+      if (!best || result.buffer.length < best.buffer.length) best = result;
       if (result.buffer.length <= maxBytes) return result; // พอแล้ว หยุดเลย
-      // ยังใหญ่ → ลอง attempt ถัดไป (dimension เล็กลง / quality ต่ำลง)
     } catch {
       sharpFailed = true;
-      break; // sharp decode ไม่ได้เลย → น่าจะเป็น HEIC
+      break; // sharp decode ไม่ได้ → น่าจะเป็น HEIC
     }
   }
+
+  // ถ้าทุก attempt สำเร็จแต่ยังใหญ่ → คืนผลที่เล็กสุดที่มี
+  if (!sharpFailed && best) return best;
 
   // Fallback: HEIC ที่ sharp ไม่รองรับ → แปลงผ่าน heic-convert ก่อน
   if (sharpFailed) {
     const jpeg = await heicToJpeg(input);
     if (!jpeg) throw new Error("UNSUPPORTED_IMAGE");
 
+    let heicBest: CompressedImage | null = null;
     for (const attempt of ENCODE_ATTEMPTS) {
       try {
         const result = await encodeImage(jpeg, attempt);
+        if (!heicBest || result.buffer.length < heicBest.buffer.length) heicBest = result;
         if (result.buffer.length <= maxBytes) return result;
       } catch {
         // ลอง attempt ถัดไป
       }
     }
-
-    // ถ้า compress ไม่ได้เลย คืน HEIC-converted ที่ยังใหญ่อยู่ดีกว่า error
-    const last = await encodeImage(jpeg, ENCODE_ATTEMPTS[ENCODE_ATTEMPTS.length - 1]).catch(() => null);
-    if (last) return last;
+    if (heicBest) return heicBest;
     throw new Error("UNSUPPORTED_IMAGE");
   }
-
-  // กรณีที่ผ่านทุก attempt แล้วยังใหญ่อยู่ → คืน attempt สุดท้าย (เล็กสุดที่ทำได้)
-  const fallback = await encodeImage(input, ENCODE_ATTEMPTS[ENCODE_ATTEMPTS.length - 1]).catch(() => null);
-  if (fallback) return fallback;
 
   throw new Error("UNSUPPORTED_IMAGE");
 }
