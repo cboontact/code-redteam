@@ -29,32 +29,43 @@ interface ReportDetailProps {
   onDelete?: () => void;
 }
 
-function getSlotNumberFromPath(path: string, fallback: number): number {
-  const match = path.match(/slot-(\d+)\./);
-  return match ? Number(match[1]) : fallback;
+/**
+ * แยก slot number จาก URL หรือ path (decode URL encoding ก่อน match)
+ * เช่น /api/images?path=2026-06-29%2Froom%2Fslot-1.jpg → 1
+ */
+function getSlotNumberFromUrl(url: string, fallback: number): number {
+  try {
+    const decoded = decodeURIComponent(url);
+    const match = decoded.match(/slot-(\d+)\./);
+    return match ? Number(match[1]) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export function ReportDetail({ report, onOpenFolder, isAdmin, onDelete }: ReportDetailProps) {
   const canEdit = isBeforeEditCutoff(report.report_date);
 
-  const imageSlots = useMemo(() => {
-    const slots = Array<string | null>(6).fill(null);
-    const sourceImages =
-      report.images?.map((url, index) => ({
-        url,
-        path: url,
-        name: `slot-${index + 1}`,
-      })) ??
-      [];
+  /**
+   * วาง URL รูปลงใน slot ที่ถูกต้อง (slot-1 ถึง slot-6)
+   * แสดงเฉพาะ slot ที่มีรูปจริง — ไม่แสดงช่องว่างที่เป็น null
+   */
+  const imageUrls = useMemo(() => {
+    const images = report.images ?? [];
+    if (images.length === 0) return [];
 
-    sourceImages.forEach((image, index) => {
-      const slot = getSlotNumberFromPath(image.path || image.name, index + 1);
+    const slots = Array<string | null>(6).fill(null);
+    images.forEach((url, index) => {
+      const slot = getSlotNumberFromUrl(url, index + 1);
       if (slot >= 1 && slot <= 6) {
-        slots[slot - 1] = image.url;
+        slots[slot - 1] = url;
       }
     });
 
-    return slots;
+    // คืนเฉพาะ slot ที่มี URL จริง พร้อม slot index
+    return slots
+      .map((url, i) => ({ url, slot: i + 1 }))
+      .filter((s) => s.url !== null) as { url: string; slot: number }[];
   }, [report.images]);
 
   return (
@@ -105,24 +116,18 @@ export function ReportDetail({ report, onOpenFolder, isAdmin, onDelete }: Report
         </button>
       )}
 
-      {imageSlots.some(Boolean) || report.images?.length > 0 ? (
+      {imageUrls.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {imageSlots.map((url, i) => (
-            <div key={`${i}-${url ?? "missing"}`} className={EVIDENCE_SLOT_CLASS}>
-              {url ? (
-                <EvidenceImage src={url} alt={`รูป ${i + 1}`} />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-red-500">
-                  ไฟล์รูปเสีย<br />กรุณาอัพใหม่
-                </div>
-              )}
-              <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-md">
-                {i + 1}
+          {imageUrls.map(({ url, slot }) => (
+            <div key={`${slot}-${url}`} className={EVIDENCE_SLOT_CLASS}>
+              <EvidenceImage src={url} alt={`รูป ${slot}`} />
+              <span className="absolute top-2 left-2 bg-black/50 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-md z-10">
+                {slot}
               </span>
             </div>
           ))}
         </div>
-      ) : null}
+      )}
 
       {canEdit && !isAdmin && (
         <Link

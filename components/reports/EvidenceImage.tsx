@@ -8,11 +8,8 @@ interface EvidenceImageProps {
   className?: string;
 }
 
+// SlotImage จัดการ absolute positioning ภายในตัวเองแล้ว
+// EvidenceImage แค่ pass-through ไม่ต้องห่อ div ซ้ำ
 export function EvidenceImage({ src, alt, className }: EvidenceImageProps) {
-  return (
-    // absolute inset-0 ทำให้ skeleton เต็มกล่องและ SlotImage อยู่ตรงกลาง
-    <div className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-xl">
-      <SlotImage src={src} alt={alt} className={className} />
-    </div>
-  );
+  return <SlotImage src={src} alt={alt} className={className} />;
 }

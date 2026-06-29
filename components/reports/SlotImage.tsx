@@ -26,17 +26,18 @@ export function SlotImage({ src, alt, className }: SlotImageProps) {
 
   if (failed) {
     return (
-      <div className="flex h-full w-full items-center justify-center px-3 text-center text-xs text-red-500">
+      <div className="absolute inset-0 flex h-full w-full items-center justify-center px-3 text-center text-xs text-red-500">
         ไฟล์รูปเสีย<br />กรุณาอัพใหม่
       </div>
     );
   }
 
   return (
-    <>
+    // absolute inset-0 ให้ container เต็มกล่อง parent ที่เป็น relative
+    <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
       {/* Skeleton shimmer ขณะรอรูปโหลด */}
       {!loaded && (
-        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse rounded-xl overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden rounded-xl bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse">
           <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
         </div>
       )}
@@ -49,11 +50,11 @@ export function SlotImage({ src, alt, className }: SlotImageProps) {
         onLoad={() => setLoaded(true)}
         onError={() => setFailedSrc(displaySrc)}
         className={cn(
-          "max-h-full max-w-full object-contain transition-opacity duration-300",
+          "relative max-h-full max-w-full object-contain transition-opacity duration-300",
           loaded ? "opacity-100" : "opacity-0",
           className
         )}
       />
-    </>
+    </div>
   );
 }
