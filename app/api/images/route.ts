@@ -35,7 +35,9 @@ export async function GET(request: NextRequest) {
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": contentTypeForPath(path),
-      "Cache-Control": "no-store, max-age=0",
+      // URL รูปมี path + version อยู่แล้ว → cache ได้นาน
+      // browser กดดูรูปซ้ำไม่ต้องโหลดใหม่จาก server
+      "Cache-Control": "public, max-age=604800, stale-while-revalidate=86400",
     },
   });
 }

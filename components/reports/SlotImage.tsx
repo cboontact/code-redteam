@@ -18,6 +18,8 @@ function resolveSrc(src: string): string {
 export function SlotImage({ src, alt, className }: SlotImageProps) {
   const displaySrc = resolveSrc(src);
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
   const failed = failedSrc === displaySrc;
 
   if (!displaySrc) return null;
@@ -31,14 +33,27 @@ export function SlotImage({ src, alt, className }: SlotImageProps) {
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={displaySrc}
-      alt={alt}
-      loading="eager"
-      decoding="sync"
-      onError={() => setFailedSrc(displaySrc)}
-      className={cn("max-h-full max-w-full object-contain", className)}
-    />
+    <>
+      {/* Skeleton shimmer ขณะรอรูปโหลด */}
+      {!loaded && (
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-pulse rounded-xl overflow-hidden">
+          <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+        </div>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={displaySrc}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={() => setFailedSrc(displaySrc)}
+        className={cn(
+          "max-h-full max-w-full object-contain transition-opacity duration-300",
+          loaded ? "opacity-100" : "opacity-0",
+          className
+        )}
+      />
+    </>
   );
 }
